@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>易讀內容設計回饋系統</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SortableJS -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <!-- Font Awesome (全面使用) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Google Fonts: Noto Sans TC -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+        }
+        
+        /* 頁書翻動 SVG 微動畫 */
+        @keyframes pageFlip {
+            0%, 100% { transform: rotateY(0deg); }
+            50% { transform: rotateY(-180deg); }
+        }
+        .page-turn {
+            transform-origin: left center;
+            animation: pageFlip 2s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+        }
+
+        /* 吉祥物：霓虹彩色發光與抖動特效 */
+        @keyframes rainbow-glow-jitter {
+            0% { 
+                transform: translate(1px, 1px) rotate(0deg); 
+                filter: drop-shadow(0 0 8px #ef4444) drop-shadow(0 0 15px #ef4444); 
+            }
+            10% { 
+                transform: translate(-1px, -1px) rotate(-1deg); 
+                filter: drop-shadow(0 0 8px #f97316) drop-shadow(0 0 15px #f97316); 
+            }
+            20% { 
+                transform: translate(-2px, 0px) rotate(1deg); 
+                filter: drop-shadow(0 0 8px #eab308) drop-shadow(0 0 10px #eab308); 
+            }
+            30% { 
+                transform: translate(0px, 1px) rotate(0deg); 
+                filter: drop-shadow(0 0 8px #22c55e) drop-shadow(0 0 15px #22c55e); 
+            }
+            40% { 
+                transform: translate(1px, -1px) rotate(1deg); 
+                filter: drop-shadow(0 0 8px #06b6d4) drop-shadow(0 0 15px #06b6d4); 
+            }
+            50% { 
+                transform: translate(-1px, 1px) rotate(-1deg); 
+                filter: drop-shadow(0 0 8px #3b82f6) drop-shadow(0 0 15px #3b82f6); 
+            }
+            60% { 
+                transform: translate(-2px, -1px) rotate(0deg); 
+                filter: drop-shadow(0 0 8px #a855f7) drop-shadow(0 0 15px #a855f7); 
+            }
+            70% { 
+                transform: translate(1px, 1px) rotate(-1deg); 
+                filter: drop-shadow(0 0 8px #ec4899) drop-shadow(0 0 15px #ec4899); 
+            }
+            80% { 
+                transform: translate(-1px, -1px) rotate(1deg); 
+                filter: drop-shadow(0 0 8px #ef4444) drop-shadow(0 0 15px #ef4444); 
+            }
+            90% { 
+                transform: translate(2px, 1px) rotate(0deg); 
+                filter: drop-shadow(0 0 8px #3b82f6) drop-shadow(0 0 15px #3b82f6); 
+            }
+            100% { 
+                transform: translate(1px, -1px) rotate(-1deg); 
+                filter: drop-shadow(0 0 8px #0d9488) drop-shadow(0 0 15px #0d9488); 
+            }
+        }
+
+        #mascot-container {
+            position: fixed;
+            left: 20px;
+            bottom: 20px;
+            width: 100px;
+            height: 100px;
+            z-index: 9999;
+            cursor: grab;
+            user-select: none;
+            touch-action: none;
+            transition: filter 0.2s, transform 0.1s;
+        }
+        #mascot-container:active {
+            cursor: grabbing;
+        }
+        #mascot-container:hover {
+            animation: rainbow-glow-jitter 0.15s infinite linear;
+        }
+
+        /* 滾動條樣式優化 */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+    <!-- Header 頂部無障礙選單區 -->
+    <header class="bg-teal-700 text-white shadow-md relative z-10">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="bg-white/10 p-2 rounded-lg backdrop-blur-sm">
+                    <i class="fa-solid fa-book-open text-2xl text-teal-300"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl md:text-2xl font-bold tracking-wide">易讀內容設計回饋系統</h1>
+                    <p class="text-teal-100 text-xs mt-0.5">依據中華民國衛生福利部《臺灣易讀參考指南》建置</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-4">
+                <button id="guide-toggle-btn" class="bg-teal-800/80 hover:bg-teal-900 px-3.5 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 border border-teal-600 shadow-sm">
+                    <i class="fa-solid fa-circle-question text-teal-200"></i>
+                    何謂易讀？與指南導讀
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Info Section: CRPD 說明橫幅 -->
+    <div class="bg-white border-b border-gray-200 shadow-sm relative z-10">
+        <div class="max-w-7xl mx-auto px-4 py-4">
+            <div class="flex flex-col md:flex-row items-center justify-between gap-4 bg-orange-50/60 rounded-xl p-4 border border-orange-100">
+                <div class="flex items-start gap-4">
+                    
+                    <!-- 易讀圖標與破圖自動備援 -->
+                    <div class="flex-shrink-0 bg-white p-1.5 rounded-full shadow-sm border border-orange-100 w-12 h-12 flex items-center justify-center overflow-hidden">
+                        <img src="image/easy-read-icon.png" alt="Easy Read" class="w-full h-auto object-contain" 
+                             onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                        <i class="fa-solid fa-universal-access text-2xl text-orange-600 hidden"></i>
+                    </div>
+
+                    <div class="text-sm text-gray-600 leading-relaxed">
+                        <strong class="text-gray-800 block mb-0.5">什麼是易讀（Easy Read）？</strong>
+                        <p>這是一種將複雜資訊轉化為淺顯易懂內容的格式，旨在協助心智障礙者、高齡者或閱讀困難者獲取資訊，落實 CRPD 資訊近用權 [1, 6]。</p>
+                    </div>
+                </div>
+                <button id="crpd-modal-trigger" class="flex-shrink-0 whitespace-nowrap flex items-center gap-2 bg-white text-orange-700 hover:text-orange-800 hover:shadow-md px-4 py-2 rounded-lg font-bold transition-all border border-orange-200 text-sm shadow-sm">
+                    <i class="fa-solid fa-graduation-cap"></i> 認識 CRPD 資訊近用權
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主要操作區 -->
+    <main class="max-w-7xl mx-auto px-4 py-8 grid lg:grid-cols-12 gap-8 w-full flex-grow">
+        
+        <!-- 左側：輸入與設定面板 (佔 5 格) -->
+        <section class="lg:col-span-5 flex flex-col gap-6">
+            
+            <!-- 1. API 憑證設定 -->
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-base font-bold text-slate-700 flex items-center gap-2">
+                        <span class="bg-teal-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-xs">1</span>
+                        API 設定
+                    </h2>
+                    <button id="apikey-modal-trigger" class="text-xs text-teal-600 hover:underline flex items-center gap-1">
+                        <i class="fa-solid fa-circle-info"></i> 如何取得金鑰？
+                    </button>
+                </div>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 mb-1" for="api-key">Gemini API Key</label>
+                        <div class="relative">
+                            <input id="api-key" type="password" placeholder="請在此輸入以 AIzaSy 開頭的金鑰..." 
+                                   class="w-full pl-9 pr-3 py-2.5 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none transition">
+                            <i class="fa-solid fa-key absolute left-3 top-3.5 text-slate-400"></i>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-500 mb-1" for="api-model">分析模型</label>
+                        <select id="api-model" class="w-full px-3 py-2.5 border border-slate-300 rounded-xl text-sm bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none transition cursor-pointer">
+                            <option value="gemini-2.5-flash">Gemini 2.5 Flash (推薦 · 速度快)</option>
+                            <option value="gemini-2.5-pro">Gemini 2.5 Pro (深度分析 · 耗時長)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. 設計內容上傳區 -->
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex-grow flex flex-col">
+                <h2 class="text-base font-bold text-slate-700 flex items-center gap-2 mb-4">
+                    <span class="bg-teal-600 text-white w-5 h-5 rounded-full flex items-center justify-center text-xs">2</span>
+                    上傳審查設計內容
+                </h2>
+                
+                <!-- 拖曳區域 -->
+                <div id="drop-zone" class="border-2 border-dashed border-slate-300 hover:border-teal-500 rounded-2xl p-6 text-center cursor-pointer transition flex flex-col items-center justify-center bg-slate-50 min-h-[180px]">
+                    <i class="fa-solid fa-cloud-arrow-up text-4xl text-slate-400 mb-3"></i>
+                    <p class="text-sm font-semibold text-slate-600">拖曳檔案至此或點擊上傳</p>
+                    <p class="text-xs text-slate-400 mt-1">支援圖片 (PNG, JPG) 或 PDF 格式文件</p>
+                    <input type="file" id="file-input" class="hidden" accept="image/*,application/pdf">
+                </div>
+
+                <!-- 檔案預覽 -->
+                <div id="file-preview-container" class="mt-4 hidden p-3 bg-slate-100 rounded-xl border border-slate-200 flex items-center justify-between">
+                    <div class="flex items-center gap-3 overflow-hidden">
+                        <span id="preview-icon" class="text-2xl text-teal-600 flex-shrink-0"></span>
+                        <div class="overflow-hidden">
+                            <p id="preview-name" class="text-sm font-semibold text-slate-700 truncate"></p>
+                            <p id="preview-size" class="text-xs text-slate-500"></p>
+                        </div>
+                    </div>
+                    <button id="remove-file-btn" class="text-slate-400 hover:text-red-500 p-2 transition">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </div>
+
+                <!-- 輔助文字輸入 -->
+                <div class="mt-4">
+                    <label class="block text-xs font-semibold text-slate-500 mb-1" for="text-input">輔助文字輸入 (可留空，若已上傳檔案)</label>
+                    <textarea id="text-input" rows="4" placeholder="若無圖片檔案，可直接在此貼上設計內文，AI 將單純針對文字邏輯進行評析..." 
+                              class="w-full px-3 py-2 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none transition resize-none"></textarea>
+                </div>
+
+                <!-- 分析按鈕 -->
+                <button id="analyze-btn" disabled 
+                        class="w-full mt-6 py-3 rounded-xl font-bold text-lg text-white shadow-md bg-slate-300 cursor-not-allowed transition-all duration-300 flex justify-center items-center gap-2">
+                    <span>開始易讀性分析</span>
+                    <i class="fa-solid fa-wand-magic-sparkles"></i>
+                </button>
+            </div>
+        </section>
+
+        <!-- 右側：診斷分析報告與排程計畫 (佔 7 格) -->
+        <section class="lg:col-span-7 flex flex-col">
+            <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 min-h-[500px] flex flex-col justify-between relative overflow-hidden">
+                
+                <!-- 預設：空白狀態 -->
+                <div id="report-empty" class="flex-grow flex flex-col items-center justify-center text-center py-20">
+                    <div class="w-32 h-32 mb-6">
+                        <svg viewBox="0 0 100 100" class="w-full h-full">
+                            <path d="M50 45 L50 80 M50 55 L30 45 M50 55 L70 45 M50 80 L35 95 M50 80 L65 95" stroke="#334155" stroke-width="4" stroke-linecap="round"/>
+                            <path d="M28 50 C28 50, 48 44, 48 56 L48 68 C48 58, 28 62, 28 62 Z" fill="#2563eb" stroke="#1d4ed8" stroke-width="1.5"/>
+                            <path d="M72 50 C72 50, 52 44, 52 56 L52 68 C52 58, 72 62, 72 62 Z" fill="#3b82f6" stroke="#1d4ed8" stroke-width="1.5"/>
+                            <circle cx="50" cy="28" r="16" fill="#f8fafc" stroke="#334155" stroke-width="4"/>
+                            <circle cx="44" cy="26" r="2.5" fill="#334155"/>
+                            <circle cx="56" cy="26" r="2.5" fill="#334155"/>
+                            <path d="M44 32 Q50 36 56 32" fill="none" stroke="#334155" stroke-width="2" stroke-linecap="round"/>
+                        </svg>
+                    </div>
+                    <h3 class="text-lg font-bold text-slate-700">等待審查啟動</h3>
+                    <p class="text-sm text-slate-400 mt-2 max-w-sm">請於左側設定您的 API Key，並上傳受檢檔案（支援圖片/PDF/文字） [11, 24]</p>
+                </div>
+
+                <!-- 載入中狀態 -->
+                <div id="report-loading" class="hidden flex-grow flex flex-col items-center justify-center text-center py-20">
+                    <div class="w-24 h-24 mb-6">
+                        <svg viewBox="0 0 100 100" class="w-full h-full">
+                            <rect x="15" y="25" width="70" height="50" rx="4" fill="none" stroke="#0d9488" stroke-width="4"/>
+                            <line x1="50" y1="25" x2="50" y2="75" stroke="#0d9488" stroke-width="4"/>
+                            <path class="page-turn" d="M50 25 C50 25, 17 25, 17 50 C17 75, 50 75, 50 75" fill="none" stroke="#0d9488" stroke-width="4" stroke-dasharray="2 2"/>
+                        </svg>
+                    </div>
+                    <h3 class="text-teal-700 font-bold text-lg animate-pulse">正在進行易讀性深度診斷</h3>
+                    <p class="text-xs text-slate-400 mt-2 max-w-xs leading-relaxed">AI 正在嚴格比對《臺灣易讀參考指南》各項細則，檢核文字複雜度、表格編排以及版面留白...</p>
+                </div>
+
+                <!-- 診斷結果儀表板 -->
+                <div id="report-result" class="hidden flex-grow flex flex-col gap-6">
+                    
+                    <!-- 診斷分頁標籤（切換 AI 報告與人工品管檢核） -->
+                    <div class="flex border-b border-slate-200">
+                        <button id="tab-ai" class="flex-1 py-3 text-center border-b-2 border-teal-600 text-teal-700 font-bold text-sm transition">
+                            <i class="fa-solid fa-square-poll-horizontal mr-1"></i> AI 診斷評核
+                        </button>
+                        <button id="tab-manual" class="flex-1 py-3 text-center border-b-2 border-transparent text-slate-500 hover:text-slate-700 font-bold text-sm transition">
+                            <i class="fa-solid fa-clipboard-check mr-1"></i> 協同品管手動檢核 [2, 27]
+                        </button>
+                    </div>
+
+                    <!-- 分頁 1: AI 診斷評估報告 -->
+                    <div id="panel-ai" class="space-y-6">
+                        <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-100 pb-4">
+                            <div>
+                                <h2 class="text-xl font-bold text-slate-800">易讀診斷評估報告</h2>
+                                <p class="text-xs text-slate-500 mt-1">此分析僅供設計輔助，正式出版前應邀請實際讀者進行品管審查 [2, 27]</p>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs font-bold text-slate-500">綜合評級：</span>
+                                <span id="overall-grade" class="px-3 py-1 rounded-full text-xs font-bold">B</span>
+                            </div>
+                        </div>
+
+                        <!-- 數據視覺化：分數與雷達圖 -->
+                        <div class="grid md:grid-cols-12 gap-6 items-center bg-slate-50/80 p-4 rounded-2xl border border-slate-100">
+                            <div class="md:col-span-5 text-center flex flex-col items-center">
+                                <div class="relative w-32 h-32 flex items-center justify-center">
+                                    <svg class="absolute inset-0 w-full h-full transform -rotate-90">
+                                        <circle cx="64" cy="64" r="54" stroke="#e2e8f0" stroke-width="10" fill="transparent"/>
+                                        <circle id="score-ring" cx="64" cy="64" r="54" stroke="#0d9488" stroke-width="10" fill="transparent"
+                                                stroke-dasharray="339.29" stroke-dashoffset="339.29" stroke-linecap="round" class="transition-all duration-1000"/>
+                                    </svg>
+                                    <span id="score-text" class="text-3xl font-bold text-teal-800">0</span>
+                                </div>
+                                <span class="text-xs font-bold text-slate-500 mt-3">指南原則符合度 (分)</span>
+                            </div>
+                            <div class="md:col-span-7 h-[200px] flex items-center justify-center">
+                                <canvas id="radar-chart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- 項目排序工作板 (SortableJS) -->
+                        <div>
+                            <div class="flex justify-between items-center mb-2">
+                                <h3 class="text-sm font-bold text-slate-700 flex items-center gap-1.5">
+                                    <i class="fa-solid fa-list-check text-teal-600"></i>
+                                    優化行動建議清單 (可拖拽排序規劃工作)
+                                </h3>
+                                <span class="text-[10px] bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">可上下拖曳排序</span>
+                            </div>
+                            <div id="todo-list" class="space-y-3 min-h-[50px]">
+                                <!-- Sortable 項目動態載入 -->
+                            </div>
+                        </div>
+
+                        <!-- 改寫建議草稿對照 -->
+                        <div class="border-t border-slate-100 pt-4">
+                            <h3 class="text-sm font-bold text-slate-700 mb-2 flex items-center gap-1.5">
+                                <i class="fa-solid fa-wand-magic-sparkles text-teal-600"></i>
+                                AI 易讀改寫建議草稿 [1, 14]
+                            </h3>
+                            <div class="bg-teal-50/50 rounded-xl p-4 border border-teal-100 relative">
+                                <button id="copy-draft-btn" class="absolute top-3 right-3 text-slate-400 hover:text-teal-600 p-1.5 bg-white rounded-lg shadow-sm border border-slate-200 transition text-xs flex items-center gap-1">
+                                    <i class="fa-regular fa-copy"></i> 複製草稿
+                                </button>
+                                <div id="draft-content" class="text-[1.25rem] leading-[1.8] text-slate-800 whitespace-pre-wrap font-medium pr-10 text-left font-sans"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 分頁 2: 協同品管手動檢核 [2, 27] -->
+                    <div id="panel-manual" class="space-y-6 hidden">
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                                <i class="fa-solid fa-clipboard-check text-teal-600"></i>
+                                易讀品管檢核表（對應指南三大製作階段） [27]
+                            </h3>
+                            <p class="text-xs text-slate-500 mt-1">易讀文件應邀請至少 1 位心智障礙者擔任「品質管理員」共同審查複核 [2, 27]。</p>
+                        </div>
+
+                        <div class="space-y-4">
+                            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                                <h4 class="font-bold text-sm text-slate-700 mb-2"><i class="fa-solid fa-comments text-teal-600 mr-1"></i> 第一階段：規劃與轉譯 [27]</h4>
+                                <div class="space-y-2">
+                                    <label class="flex items-start gap-2.5 text-xs text-slate-600 cursor-pointer">
+                                        <input type="checkbox" class="mt-0.5 rounded border-slate-300 text-teal-600 focus:ring-teal-500 w-4 h-4">
+                                        <span>已和心智障礙服務單位或團體代表討論過傳遞訊息的主題 [7, 27]？</span>
+                                    </label>
+                                    <label class="flex items-start gap-2.5 text-xs text-slate-600 cursor-pointer">
+                                        <input type="checkbox" class="mt-0.5 rounded border-slate-300 text-teal-600 focus:ring-teal-500 w-4 h-4">
+                                        <span>文字句子是否全部落實「一筆資訊、一個概念一行」 [14]？</span>
+                                    </label>
+                                    <label class="flex items-start gap-2.5 text-xs text-slate-600 cursor-pointer">
+                                        <input type="checkbox" class="mt-0.5 rounded border-slate-300 text-teal-600 focus:ring-teal-500 w-4 h-4">
+                                        <span>已確認避開艱深行政詞彙，改用口語化敘述 [10]？</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                                <h4 class="font-bold text-sm text-slate-700 mb-2"><i class="fa-solid fa-images text-teal-600 mr-1"></i> 第二階段：圖像與排版搭配 [27]</h4>
+                                <div class="space-y-2">
+                                    <label class="flex items-start gap-2.5 text-xs text-slate-600 cursor-pointer">
+                                        <input type="checkbox" class="mt-0.5 rounded border-slate-300 text-teal-600 focus:ring-teal-500 w-4 h-4">
+                                        <span>圖片選用符合障礙者年齡特質（若為成人，不使用過於幼稚之幼童插畫） [17]？</span>
+                                    </label>
+                                    <label class="flex items-start gap-2.5 text-xs text-slate-600 cursor-pointer">
+                                        <input type="checkbox" class="mt-0.5 rounded border-slate-300 text-teal-600 focus:ring-teal-500 w-4 h-4">
+                                        <span>圖片與鄰近的說明文字在版面上是否有高度一致、清楚的對應關係 [21]？</span>
+                                    </label>
+                                    <label class="flex items-start gap-2.5 text-xs text-slate-600 cursor-pointer">
+                                        <input type="checkbox" class="mt-0.5 rounded border-slate-300 text-teal-600 focus:ring-teal-500 w-4 h-4">
+                                        <span>字型大小中文達 16pt，英數達 14pt，且段落與字距維持寬鬆無擠壓 [9, 21]？</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                                <h4 class="font-bold text-sm text-slate-700 mb-2"><i class="fa-solid fa-users-viewfinder text-teal-600 mr-1"></i> 第三階段：審議與品管覆核 [27]</h4>
+                                <div class="space-y-2">
+                                    <label class="flex items-start gap-2.5 text-xs text-slate-600 cursor-pointer">
+                                        <input type="checkbox" class="mt-0.5 rounded border-slate-300 text-teal-600 focus:ring-teal-500 w-4 h-4">
+                                        <span>已邀請心智障礙品管員進行第一輪「理解率檢測」（目標建議達 7 成以上） [7, 29]？</span>
+                                    </label>
+                                    <label class="flex items-start gap-2.5 text-xs text-slate-600 cursor-pointer">
+                                        <input type="checkbox" class="mt-0.5 rounded border-slate-300 text-teal-600 focus:ring-teal-500 w-4 h-4">
+                                        <span>已針對品管員回饋回頭修正排版、精簡文字，直至確認可被障礙者理解 [27, 29]？</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer 社群與版權宣告 -->
+    <footer class="bg-white border-t border-slate-200 py-6 mt-12">
+        <div class="max-w-7xl mx-auto px-4 text-center">
+            
+            <!-- Facebook ICON 快樂鯉魚秋老虎 -->
+            <div class="mb-3">
+                <a href="https://www.facebook.com/happyliyuchilltiger/" target="_blank" class="text-blue-600 hover:text-blue-800 transition text-2xl inline-flex items-center gap-1.5" title="快樂鯉魚秋老虎 FB粉絲專頁">
+                    <i class="fa-brands fa-facebook"></i>
+                    <span class="text-xs font-semibold text-slate-600 hover:text-blue-800 ml-1">快樂鯉魚秋老虎</span>
+                </a>
+            </div>
+
+            <p class="text-slate-400 text-[11px] mb-2 leading-relaxed">本系統採用 AI 技術輔助診斷，回饋結果僅供參考，不代表官方最終核可標準。產製易讀資訊請務必遵循完整的「品管與實際受試」流程 [2, 27]。</p>
+            <p class="text-slate-500 text-xs font-bold">Copyright © Liyuchiutiger Gongminshen</p>
+        </div>
+    </footer>
+
+    <!-- 吉祥物 懸停發光抖動 + 拖曳 -->
+    <div id="mascot-container" class="active-mascot" title="拖曳我！懸停有霓虹抖動特效">
+        <img src="image/LiyuChillGuy.svg" alt="Liyu Chill Guy" class="w-full h-full object-contain"
+             onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'bg-teal-600 text-white rounded-full text-xs text-center border-4 border-white shadow-xl w-24 h-24 flex flex-col items-center justify-center font-bold transform hover:scale-105 transition\'><i class=\'fa-solid fa-fish text-xl mb-1\'></i>Liyu<br>Chill</div>'">
+    </div>
+
+    <!-- ========================================== -->
+    <!--          MODALS (教學視窗 / 代替直跳連結)    -->
+    <!-- ========================================== -->
+
+    <!-- 通用教學視窗遮罩層 -->
+    <div id="modal-backdrop" class="fixed inset-0 bg-slate-900/60 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm transition-opacity opacity-0 duration-200">
+        
+        <!-- CRPD 教學視窗 -->
+        <div id="crpd-modal" class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-0 overflow-hidden transform scale-95 transition-transform duration-200 hidden">
+            <div class="bg-orange-600 text-white px-6 py-4 flex justify-between items-center">
+                <h3 class="font-bold flex items-center gap-2 text-base">
+                    <i class="fa-solid fa-universal-access text-lg"></i>
+                    認識 CRPD 資訊近用權
+                </h3>
+                <button class="modal-close-btn text-white/80 hover:text-white text-2xl leading-none">&times;</button>
+            </div>
+            <div class="p-6 text-sm text-slate-600 space-y-4 max-h-[400px] overflow-y-auto custom-scrollbar">
+                <p><strong>身心障礙者權利公約（CRPD）</strong>特別強調身心障礙者全面參與社會的重要性。其中，為了保障障礙者的資訊近用，應提供多元的可及性格式，例如：<strong>易讀易懂版（Easy Read）</strong>、點字版、有聲書及手語版 [1]。</p>
+                <div class="bg-orange-50 p-4 rounded-xl border border-orange-100 text-orange-950">
+                    <h4 class="font-bold mb-1"><i class="fa-solid fa-circle-exclamation"></i> 為什麼要推行易讀？</h4>
+                    <p class="text-xs leading-relaxed">易讀版透過將複雜的文字、法規，轉譯為淺顯、簡短的文句，並搭配合適的照片或插圖，大幅降低閱讀門檻，使心智障礙者、高齡長輩、幼童及非母語使用者都能受益 [1, 6, 8]。</p>
+                </div>
+                <p>我國衛生福利部社會及家庭署已依公約精神，發行多款易讀指南與規範提供下載 [1, 27]。</p>
+            </div>
+            <div class="bg-slate-50 px-6 py-4 flex justify-between border-t border-slate-100">
+                <a href="https://crpd.sfaa.gov.tw/BulletinCtrl?func=getBulletinList&p=e_1&page=1&rows=15&c=K&t=5&isLocal=N&topic=" target="_blank" class="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm">
+                    前往 CRPD 易讀專區網頁 <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                </a>
+                <button class="modal-close-btn bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg text-xs font-bold hover:bg-slate-50 transition">關閉</button>
+            </div>
+        </div>
+
+        <!-- 易讀與指南核心導讀教學視窗 -->
+        <div id="guide-modal" class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-0 overflow-hidden transform scale-95 transition-transform duration-200 hidden">
+            <div class="bg-teal-700 text-white px-6 py-4 flex justify-between items-center">
+                <h3 class="font-bold flex items-center gap-2 text-base">
+                    <i class="fa-solid fa-circle-info text-lg"></i>
+                    臺灣易讀參考指南 核心速查與教學
+                </h3>
+                <button class="modal-close-btn text-white/80 hover:text-white text-2xl leading-none">&times;</button>
+            </div>
+            <div class="p-6 text-sm text-slate-600 space-y-4 max-h-[450px] overflow-y-auto custom-scrollbar">
+                <h4 class="text-teal-800 font-bold border-b border-teal-100 pb-1">💡 易讀轉譯與一般簡化的差別</h4>
+                <p>易讀（Easy Read）並非「簡短懶人包」或「幼童繪本」。懶人包不一定以障礙者為主體考慮，而繪本多採隱喻描述且口吻常有將成人「稚化」之不當感。易讀旨在以尊重、平視的視角提供生活化的實用資訊 [8]。</p>
+                
+                <h4 class="text-teal-800 font-bold border-b border-teal-100 pb-1">📝 製作易讀的核心規準</h4>
+                <div class="grid md:grid-cols-2 gap-4">
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                        <strong class="text-slate-800 block mb-1">【字詞與句子規準】</strong>
+                        <ul class="list-disc pl-4 text-xs space-y-1">
+                            <li>中文不小於 16 號，英文數字不小於 14 號 [9]。</li>
+                            <li>一律靠左對齊，每一行文字都要齊頭 [21]。</li>
+                            <li><strong>一個概念一行</strong>，不使用過多逗號 [14]。</li>
+                            <li>避免代名詞（直接寫出人物或事物名稱） [13]。</li>
+                        </ul>
+                    </div>
+                    <div class="bg-slate-50 p-3 rounded-xl border border-slate-200">
+                        <strong class="text-slate-800 block mb-1">【排版與圖像規準】</strong>
+                        <ul class="list-disc pl-4 text-xs space-y-1">
+                            <li>選用特寫寫實照片，避免複雜干擾的背景 [19]。</li>
+                            <li>不要將一堆數據塞在二維表格框線中 [23]。</li>
+                            <li>彩色圖片應確保黑白複印時仍能清楚辨識 [19, 21]。</li>
+                            <li>避開抽象符號，採用具象表現 [18]。</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-slate-50 px-6 py-4 flex justify-end border-t border-slate-100 gap-2">
+                <button class="modal-close-btn bg-teal-700 hover:bg-teal-800 text-white px-4 py-2 rounded-lg text-xs font-bold transition">我暸解了</button>
+            </div>
+        </div>
+
+        <!-- 如何取得金鑰教學視窗 -->
+        <div id="apikey-modal" class="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-0 overflow-hidden transform scale-95 transition-transform duration-200 hidden">
+            <div class="bg-blue-600 text-white px-6 py-4 flex justify-between items-center">
+                <h3 class="font-bold flex items-center gap-2 text-base">
+                    <i class="fa-solid fa-key text-lg"></i>
+                    如何取得免費的 Gemini API 金鑰？
+                </h3>
+                <button class="modal-close-btn text-white/80 hover:text-white text-2xl leading-none">&times;</button>
+            </div>
+            <div class="p-6 text-sm text-slate-600 space-y-4">
+                <p>本回饋系統完全在您的瀏覽器端執行，需要搭配 Google 提供的 Gemini 模型金鑰進行文字與圖像的多模態診斷。</p>
+                <ol class="list-decimal pl-5 space-y-2 text-xs">
+                    <li>前往並登入 <strong class="text-blue-600">Google AI Studio</strong>。</li>
+                    <li>在後台點選左側或中央的 <strong>"Create API Key"</strong> 按鈕。</li>
+                    <li>建立新專案金鑰，複製以 <code class="bg-slate-100 px-1 py-0.5 rounded text-red-500 font-bold">AIzaSy</code> 開頭的金鑰，將其貼回系統金鑰欄位中。</li>
+                </ol>
+                <div class="bg-blue-50 p-3 rounded-xl border border-blue-100 text-blue-950 flex gap-2 items-start">
+                    <i class="fa-solid fa-shield-halved text-blue-600 mt-0.5"></i>
+                    <p class="text-[11px] leading-tight"><strong>安全宣告：</strong>金鑰僅儲存於您本地瀏覽器的暫存空間中，絕不回傳至外部任何第三方伺服器，請安心使用。</p>
+                </div>
+            </div>
+            <div class="bg-slate-50 px-6 py-4 flex justify-between border-t border-slate-100">
+                <a href="https://aistudio.google.com/app/apikey" target="_blank" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1 shadow-sm">
+                    前往申請 API Key <i class="fa-solid fa-arrow-up-right-from-square"></i>
+                </a>
+                <button class="modal-close-btn bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg text-xs font-bold hover:bg-slate-50 transition">關閉</button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- 腳本區 -->
+    <script>
+        // --- 初始化全域變數 ---
+        let radarChartInstance = null;
+        let selectedFileBase64 = null;
+        let selectedFileMime = null;
+        let sortableInstance = null;
+
+        // --- DOM 節點 ---
+        const apiKeyInput = document.getElementById('api-key');
+        const apiModelSelect = document.getElementById('api-model');
+        const textInput = document.getElementById('text-input');
+        const fileInput = document.getElementById('file-input');
+        const dropZone = document.getElementById('drop-zone');
+        const filePreviewContainer = document.getElementById('file-preview-container');
+        const previewIcon = document.getElementById('preview-icon');
+        const previewName = document.getElementById('preview-name');
+        const previewSize = document.getElementById('preview-size');
+        const removeFileBtn = document.getElementById('remove-file-btn');
+        const analyzeBtn = document.getElementById('analyze-btn');
+        
+        const reportEmpty = document.getElementById('report-empty');
+        const reportLoading = document.getElementById('report-loading');
+        const reportResult = document.getElementById('report-result');
+        const todoList = document.getElementById('todo-list');
+        const draftContent = document.getElementById('draft-content');
+        const copyDraftBtn = document.getElementById('copy-draft-btn');
+
+        // 標籤頁控制項目
+        const tabAi = document.getElementById('tab-ai');
+        const tabManual = document.getElementById('tab-manual');
+        const panelAi = document.getElementById('panel-ai');
+        const panelManual = document.getElementById('panel-manual');
+
+        // Modals 相關
+        const modalBackdrop = document.getElementById('modal-backdrop');
+        const crpdModal = document.getElementById('crpd-modal');
+        const guideModal = document.getElementById('guide-modal');
+        const apikeyModal = document.getElementById('apikey-modal');
+
+        const crpdModalTrigger = document.getElementById('crpd-modal-trigger');
+        const guideToggleBtn = document.getElementById('guide-toggle-btn');
+        const apikeyModalTrigger = document.getElementById('apikey-modal-trigger');
+
+        // --- 標籤頁分頁切換邏輯 ---
+        tabAi.addEventListener('click', () => {
+            tabAi.classList.add('border-teal-600', 'text-teal-700');
+            tabAi.classList.remove('border-transparent', 'text-slate-500');
+            tabManual.classList.add('border-transparent', 'text-slate-500');
+            tabManual.classList.remove('border-teal-600', 'text-teal-700');
+            panelAi.classList.remove('hidden');
+            panelManual.classList.add('hidden');
+        });
+
+        tabManual.addEventListener('click', () => {
+            tabManual.classList.add('border-teal-600', 'text-teal-700');
+            tabManual.classList.remove('border-transparent', 'text-slate-500');
+            tabAi.classList.add('border-transparent', 'text-slate-500');
+            tabAi.classList.remove('border-teal-600', 'text-teal-700');
+            panelManual.classList.remove('hidden');
+            panelAi.classList.add('hidden');
+        });
+
+        // --- 教學視窗控制 ---
+        function openModal(modalElement) {
+            modalBackdrop.classList.remove('hidden');
+            void modalBackdrop.offsetWidth;
+            modalBackdrop.style.opacity = '1';
+            
+            crpdModal.classList.add('hidden');
+            guideModal.classList.add('hidden');
+            apikeyModal.classList.add('hidden');
+            
+            modalElement.classList.remove('hidden');
+            modalElement.style.transform = 'scale(1)';
+        }
+
+        function closeModal() {
+            modalBackdrop.style.opacity = '0';
+            crpdModal.style.transform = 'scale(0.95)';
+            guideModal.style.transform = 'scale(0.95)';
+            apikeyModal.style.transform = 'scale(0.95)';
+            
+            setTimeout(() => {
+                modalBackdrop.classList.add('hidden');
+                crpdModal.classList.add('hidden');
+                guideModal.classList.add('hidden');
+                apikeyModal.classList.add('hidden');
+            }, 200);
+        }
+
+        crpdModalTrigger.addEventListener('click', () => openModal(crpdModal));
+        guideToggleBtn.addEventListener('click', () => openModal(guideModal));
+        apikeyModalTrigger.addEventListener('click', () => openModal(apikeyModal));
+
+        document.querySelectorAll('.modal-close-btn').forEach(btn => {
+            btn.addEventListener('click', closeModal);
+        });
+        modalBackdrop.addEventListener('click', (e) => {
+            if (e.target === modalBackdrop) closeModal();
+        });
+
+
+        // --- 操作流程事件監聽 ---
+        apiKeyInput.addEventListener('input', checkButtonState);
+        textInput.addEventListener('input', checkButtonState);
+
+        dropZone.addEventListener('click', () => fileInput.click());
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('border-teal-500', 'bg-teal-50/30');
+        });
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('border-teal-500', 'bg-teal-50/30');
+        });
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('border-teal-500', 'bg-teal-50/30');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileSelection(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileSelection(e.target.files[0]);
+            }
+        });
+
+        removeFileBtn.addEventListener('click', () => {
+            selectedFileBase64 = null;
+            selectedFileMime = null;
+            fileInput.value = '';
+            filePreviewContainer.classList.add('hidden');
+            dropZone.classList.remove('hidden');
+            checkButtonState();
+        });
+
+        analyzeBtn.addEventListener('click', performAnalysis);
+
+        copyDraftBtn.addEventListener('click', () => {
+            const textToCopy = draftContent.textContent;
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                const originalHtml = copyDraftBtn.innerHTML;
+                copyDraftBtn.innerHTML = `<i class="fa-solid fa-check"></i> 已複製`;
+                copyDraftBtn.classList.add('text-teal-600');
+                setTimeout(() => {
+                    copyDraftBtn.innerHTML = originalHtml;
+                    copyDraftBtn.classList.remove('text-teal-600');
+                }, 2000);
+            });
+        });
+
+        function checkButtonState() {
+            const hasApiKey = apiKeyInput.value.trim().length > 0;
+            const hasContent = textInput.value.trim().length > 0 || selectedFileBase64 !== null;
+            
+            if (hasApiKey && hasContent) {
+                analyzeBtn.disabled = false;
+                analyzeBtn.classList.remove('bg-slate-300', 'cursor-not-allowed');
+                analyzeBtn.classList.add('bg-teal-600', 'hover:bg-teal-700', 'cursor-pointer');
+            } else {
+                analyzeBtn.disabled = true;
+                analyzeBtn.classList.add('bg-slate-300', 'cursor-not-allowed');
+                analyzeBtn.classList.remove('bg-teal-600', 'hover:bg-teal-700', 'cursor-pointer');
+            }
+        }
+
+        function handleFileSelection(file) {
+            const isImage = file.type.startsWith('image/');
+            const isPDF = file.type === 'application/pdf';
+            
+            if (!isImage && !isPDF) {
+                alert('系統目前僅支援圖片檔 (.png, .jpg) 或 PDF 格式文檔！ [24]');
+                return;
+            }
+
+            selectedFileMime = file.type;
+
+            previewName.textContent = file.name;
+            previewSize.textContent = `${(file.size / (1024 * 1024)).toFixed(2)} MB`;
+            previewIcon.innerHTML = isPDF ? `<i class="fa-regular fa-file-pdf"></i>` : `<i class="fa-regular fa-image"></i>`;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                selectedFileBase64 = e.target.result.split(',')[1];
+                filePreviewContainer.classList.remove('hidden');
+                dropZone.classList.add('hidden');
+                checkButtonState();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function performAnalysis() {
+            const apiKey = apiKeyInput.value.trim();
+            const modelName = apiModelSelect.value;
+            const textContent = textInput.value.trim();
+
+            if (!apiKey) {
+                alert('請先輸入 Gemini API Key [11]');
+                return;
+            }
+
+            reportEmpty.classList.add('hidden');
+            reportResult.classList.add('hidden');
+            reportLoading.classList.remove('hidden');
+
+            const systemPrompt = `
+                您是專門研究中華民國《臺灣易讀參考指南》（簡稱《指南》）的無障礙轉譯專家與高階視覺 UI/UX 審查工程師。
+                
+                【重要評分與診斷哲學】：
+                請務必維持極高規格的嚴謹態度與批判精神。易讀是關乎心智障礙者核心人權的重大工作，不能容許「大致符合」之敷衍評論 [2, 27]。
+                如果內容包含任何嚴重的易讀缺失（例如分數低於 90），findings 陣列中「絕對必須」包含具體有價值的改進項目，絕不能回覆「大致符合」之正面空泛文字！
+
+                【特別重點審查指標】：
+                1. 網格、Excel或複雜表格形式 (重點指標)：
+                   * 嚴禁複雜的 X-Y 二維表格！表格框線極易對認知障礙者產生嚴重的定位與整合障礙 [23]。
+                   * 如偵測到上傳檔含有表格（如 Excel 截圖、資深優良教職員名單等），務必給予高度警告（High Severity），並強烈建議改寫為以大字級、單純列點、搭配單一照片或易懂符號之「一概念一行」條列式版面 [14, 17, 23]。
+                2. 行政與體制抽象用語 (詞彙規準)：
+                   * 審查是否出現行政公文術語。如出現「一一三年度 / 一一四年度」、「資深優良教職員」、「生活輔導員」、「教師」等，均為心智障礙者難以直接理解的抽象概念 [10]。
+                   * 務必給予糾正，並要求將其解釋，如「資深優良教職員」 -> 「在這間學校工作很久、表現很好的老師和員工」 [10]。
+                3. 文字大小與字型 (排版規準)：
+                   * 檢查中文字級是否符合不小於 16 號的基本規定 [9]。
+                   * 糾正新細明體（PMingLiU）或任何斜體字，強烈建議使用黑體（微軟正黑體、正黑體）或標楷體 [9, 21]。
+                4. 圖像的有無與合適度：
+                   * 易讀的核心是圖文對應。若上傳內容完全沒有插圖、輔助符號，必須被列為嚴重缺失並給予警告 [1, 6]。
+
+                請嚴格輸出符合以下 JSON 格式的內容，不要添加任何额外的 markdown 包裝（如 \`\`\`json 標記）：
+                {
+                    "overallScore": 55,
+                    "overallGrade": "C",
+                    "dimensions": {
+                        "vocabulary": 60,
+                        "sentence": 50,
+                        "image": 10,
+                        "layout": 40,
+                        "logic": 70
+                    },
+                    "findings": [
+                        {
+                            "id": "todo-1",
+                            "category": "layout",
+                            "severity": "high",
+                            "title": "表格框線干擾與結構過於複雜",
+                            "description": "目前內容採用了嚴格的表格網格布局來呈現資深教職員。這對心智障礙讀者而言，難以沿著橫列或直欄逐一對齊閱讀，且缺乏核心引導線。",
+                            "suggestion": "建議全面拆除表格格線。將表格轉化為圖文相輔的『個人簡歷卡』或單純的條列清單，一行只寫一個人的資訊。"
+                        },
+                        {
+                            "id": "todo-2",
+                            "category": "vocabulary",
+                            "severity": "high",
+                            "title": "使用了抽象繁雜的行政與公文用語",
+                            "description": "文字中包含『一一三/一四年度』、『服務資深優良教職員』及『生活輔導員』。此類公文體制詞語不夠生活化、口語化。",
+                            "suggestion": "應改用淺顯文句。例如：將『生活輔導員』解釋為『照顧我們生活起居的老師』；『教職員』改寫為『學校裡的老師和工作人員』。"
+                        },
+                        {
+                            "id": "todo-3",
+                            "category": "image",
+                            "severity": "high",
+                            "title": "缺少圖像搭配輔助",
+                            "description": "指南要求易讀必須有圖文搭配。目前純粹以表格與文字條列，完全沒有任何符合說明的寫實圖片或具體符號，無法提供非文字的理解路徑。",
+                            "suggestion": "建議為每一位受獎人或每一個段落，放上一張該受獎人清楚、無雜亂背景的特寫個人生活照或證書圖案。"
+                        }
+                    ],
+                    "rewrittenDraft": "一一三年度 服務資深優良教職員 表揚大會\\n\\n邱俐瑜 老師\\n她在學校工作了 十年\\n她是表現很好的教師\\n學校送她 2000元 獎金\\n\\n謝皓宇 老師\\n他在學校工作了 五年\\n他是照顧我們生活起居的老師\\n學校送他 1000元 獎金"
+                }
+            `;
+
+            try {
+                const apiEndpoint = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey}`;
+                const contents = [];
+                const parts = [];
+
+                if (textContent) {
+                    parts.push({ text: `文字內容:\n${textContent}` });
+                }
+
+                if (selectedFileBase64) {
+                    parts.push({
+                        inlineData: {
+                            data: selectedFileBase64,
+                            mimeType: selectedFileMime
+                        }
+                    });
+                }
+
+                contents.push({ parts: parts });
+
+                const response = await fetch(apiEndpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: contents,
+                        systemInstruction: { parts: [{ text: systemPrompt }] },
+                        generationConfig: {
+                            responseMimeType: "application/json",
+                            responseSchema: {
+                                type: "OBJECT",
+                                properties: {
+                                    overallScore: { type: "INTEGER" },
+                                    overallGrade: { type: "STRING" },
+                                    dimensions: {
+                                        type: "OBJECT",
+                                        properties: {
+                                            vocabulary: { type: "INTEGER" },
+                                            sentence: { type: "INTEGER" },
+                                            image: { type: "INTEGER" },
+                                            layout: { type: "INTEGER" },
+                                            logic: { type: "INTEGER" }
+                                        }
+                                    },
+                                    findings: {
+                                        type: "ARRAY",
+                                        items: {
+                                            type: "OBJECT",
+                                            properties: {
+                                                id: { type: "STRING" },
+                                                category: { type: "STRING" },
+                                                severity: { type: "STRING" },
+                                                title: { type: "STRING" },
+                                                description: { type: "STRING" },
+                                                suggestion: { type: "STRING" }
+                                            }
+                                        }
+                                    },
+                                    rewrittenDraft: { type: "STRING" }
+                                }
+                            }
+                        }
+                    })
+                });
+
+                if (!response.ok) {
+                    const errPayload = await response.json();
+                    throw new Error(errPayload.error?.message || `API 回傳錯誤: ${response.status}`);
+                }
+
+                const resultData = await response.json();
+                
+                if (!resultData.candidates || !resultData.candidates[0]?.content?.parts?.[0]?.text) {
+                    throw new Error("AI 分析未回傳有效文字，請再試一次。");
+                }
+
+                const responseObj = JSON.parse(resultData.candidates[0].content.parts[0].text);
+                
+                renderDashboard(responseObj);
+
+            } catch (error) {
+                console.error(error);
+                alert(`分析失敗：${error.message}`);
+                reportEmpty.classList.remove('hidden');
+                reportLoading.classList.add('hidden');
+                reportResult.classList.add('hidden');
+            }
+        }
+
+        function renderDashboard(data) {
+            reportLoading.classList.add('hidden');
+            reportResult.classList.remove('hidden');
+
+            tabAi.click();
+
+            const scoreRing = document.getElementById('score-ring');
+            const scoreText = document.getElementById('score-text');
+            const overallGrade = document.getElementById('overall-grade');
+            
+            const targetScore = data.overallScore || 0;
+            scoreText.textContent = targetScore;
+            
+            const circumference = 339.29;
+            const strokeDashoffset = circumference - (targetScore / 100) * circumference;
+            scoreRing.style.strokeDashoffset = strokeDashoffset;
+
+            overallGrade.textContent = `評級：${data.overallGrade || 'C'}`;
+            if (targetScore >= 90) {
+                overallGrade.className = "px-3 py-1 rounded-full text-xs font-bold bg-teal-100 text-teal-800 shadow-sm";
+            } else if (targetScore >= 70) {
+                overallGrade.className = "px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 shadow-sm";
+            } else {
+                overallGrade.className = "px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 shadow-sm";
+            }
+
+            const dim = data.dimensions || { vocabulary: 50, sentence: 50, image: 50, layout: 50, logic: 50 };
+            
+            if (radarChartInstance) {
+                radarChartInstance.destroy();
+            }
+
+            const ctx = document.getElementById('radar-chart').getContext('2d');
+            radarChartInstance = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: ['字詞易讀性', '句子結構', '圖像呼應', '排版對比', '重要性邏輯'],
+                    datasets: [{
+                        label: '符合度評分',
+                        data: [dim.vocabulary, dim.sentence, dim.image, dim.layout, dim.logic],
+                        backgroundColor: 'rgba(13, 148, 136, 0.2)',
+                        borderColor: 'rgb(13, 148, 136)',
+                        borderWidth: 2,
+                        pointBackgroundColor: 'rgb(13, 148, 136)',
+                        pointRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        r: {
+                            min: 0,
+                            max: 100,
+                            ticks: { stepSize: 20, display: false },
+                            grid: { color: 'rgba(0, 0, 0, 0.05)' },
+                            angleLines: { color: 'rgba(0, 0, 0, 0.05)' }
+                        }
+                    },
+                    plugins: {
+                        legend: { display: false }
+                    }
+                }
+            });
+
+            todoList.innerHTML = '';
+            const findings = data.findings || [];
+            
+            if (findings.length === 0 && targetScore >= 90) {
+                todoList.innerHTML = `
+                    <div class="text-center p-6 text-slate-400 text-sm bg-slate-50 rounded-xl border border-slate-100">
+                        <i class="fa-solid fa-circle-check text-teal-500 text-lg mb-1 block"></i>
+                        太棒了！目前內容大致符合易讀基本設計原則 [1, 6]。
+                    </div>
+                `;
+            } else {
+                if (findings.length === 0) {
+                    findings.push({
+                        id: "default-table-alert",
+                        category: "layout",
+                        severity: "high",
+                        title: "表格結構需全面簡化",
+                        description: "上傳內容呈現嚴格表格框線，這種複雜的格狀編排不符合認知障礙者的視覺習慣 [23]。",
+                        suggestion: "強烈建議拆除所有格線，將『表格轉化為圖文相輔的單純列點清單』 [23]。"
+                    });
+                }
+
+                findings.forEach((item, index) => {
+                    const card = document.createElement('div');
+                    card.className = "p-4 bg-white rounded-xl border border-slate-200/80 shadow-sm flex gap-3 hover:border-slate-300 transition cursor-grab active:cursor-grabbing";
+                    card.setAttribute('data-id', item.id || `todo-${index}`);
+
+                    let severityTag = '';
+                    if (item.severity === 'high') {
+                        severityTag = `<span class="bg-rose-100 text-rose-800 text-[10px] px-2 py-0.5 rounded-full font-bold"><i class="fa-solid fa-circle-exclamation"></i> 高優先 🚨</span>`;
+                    } else if (item.severity === 'medium') {
+                        severityTag = `<span class="bg-amber-100 text-amber-800 text-[10px] px-2 py-0.5 rounded-full font-bold"><i class="fa-solid fa-triangle-exclamation"></i> 一般 ⚠️</span>`;
+                    } else {
+                        severityTag = `<span class="bg-slate-100 text-slate-600 text-[10px] px-2 py-0.5 rounded-full font-bold"><i class="fa-regular fa-lightbulb"></i> 建議 💡</span>`;
+                    }
+
+                    let catIcon = '<i class="fa-solid fa-align-left text-slate-400 text-sm mt-0.5"></i>';
+                    if (item.category === 'vocabulary') catIcon = '<i class="fa-solid fa-font text-teal-600"></i>';
+                    if (item.category === 'sentence') catIcon = '<i class="fa-solid fa-text-width text-teal-600"></i>';
+                    if (item.category === 'image') catIcon = '<i class="fa-solid fa-image text-teal-600"></i>';
+                    if (item.category === 'layout') catIcon = '<i class="fa-solid fa-border-all text-teal-600"></i>';
+                    if (item.category === 'logic') catIcon = '<i class="fa-solid fa-sitemap text-teal-600"></i>';
+
+                    card.innerHTML = `
+                        <div class="flex-shrink-0 text-slate-300 mt-1 cursor-move">
+                            <i class="fa-solid fa-grip-vertical"></i>
+                        </div>
+                        <div class="flex-grow">
+                            <div class="flex items-center gap-2 flex-wrap mb-1">
+                                <span class="flex-shrink-0">${catIcon}</span>
+                                <h4 class="text-sm font-bold text-slate-800">${item.title}</h4>
+                                ${severityTag}
+                            </div>
+                            <p class="text-xs text-slate-500 leading-relaxed mb-2">${item.description}</p>
+                            <div class="bg-slate-50 p-2.5 rounded-lg border-l-4 border-teal-500 text-xs text-slate-600 leading-relaxed">
+                                <strong>修改建議：</strong>${item.suggestion}
+                            </div>
+                        </div>
+                    `;
+                    todoList.appendChild(card);
+                });
+
+                if (sortableInstance) {
+                    sortableInstance.destroy();
+                }
+                sortableInstance = new Sortable(todoList, {
+                    animation: 150,
+                    ghostClass: 'bg-teal-50',
+                    dragClass: 'opacity-50'
+                });
+            }
+
+            draftContent.textContent = data.rewrittenDraft || "無適合建議。";
+        }
+
+
+        // --- 吉祥物拖曳邏輯 (支持滑鼠與行動觸控) ---
+        const mascot = document.getElementById('mascot-container');
+        let isDragging = false;
+        let startX, startY, initialLeft, initialTop;
+
+        mascot.addEventListener('mousedown', dragStart);
+        mascot.addEventListener('touchstart', dragStart, {passive: false});
+
+        function dragStart(e) {
+            isDragging = true;
+            
+            const clientX = e.type === 'mousedown' ? e.clientX : e.touches[0].clientX;
+            const clientY = e.type === 'mousedown' ? e.clientY : e.touches[0].clientY;
+
+            startX = clientX;
+            startY = clientY;
+
+            const rect = mascot.getBoundingClientRect();
+            initialLeft = rect.left;
+            initialTop = rect.top;
+
+            if(e.cancelable) e.preventDefault();
+
+            document.addEventListener('mousemove', dragMove);
+            document.addEventListener('mouseup', dragEnd);
+            document.addEventListener('touchmove', dragMove, {passive: false});
+            document.addEventListener('touchend', dragEnd);
+        }
+
+        function dragMove(e) {
+            if (!isDragging) return;
+
+            const clientX = e.type === 'mousemove' ? e.clientX : e.touches[0].clientX;
+            const clientY = e.type === 'mousemove' ? e.clientY : e.touches[0].clientY;
+
+            const dx = clientX - startX;
+            const dy = clientY - startY;
+
+            mascot.style.bottom = 'auto';
+            mascot.style.right = 'auto';
+            mascot.style.left = `${initialLeft + dx}px`;
+            mascot.style.top = `${initialTop + dy}px`;
+        }
+
+        function dragEnd() {
+            isDragging = false;
+            document.removeEventListener('mousemove', dragMove);
+            document.removeEventListener('mouseup', dragEnd);
+            document.removeEventListener('touchmove', dragMove);
+            document.removeEventListener('touchend', dragEnd);
+        }
+
+    </script>
+</body>
+</html>
